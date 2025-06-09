@@ -6,27 +6,42 @@ export const handleWebhook = async (req: Request, res: Response) => {
   try {
     const eventData = req.body;
     
-    // Validate and transform data if needed
+    // Validate required fields
+    if (!eventData.agent || !eventData.rule) {
+      throw new Error('Invalid Wazuh alert format');
+    }
+
+    // Transform and save the event
     const event = new Event({
-      agent_id: eventData.agent.id,
-      timestamp: new Date(eventData.timestamp * 1000), // Convert if needed
-      rule_id: eventData.rule.id,
-      rule_description: eventData.rule.description,
-      severity: eventData.rule.level,
-      src_ip: eventData.srcip,
-      dst_ip: eventData.dstip,
-      user: eventData.data?.win?.eventdata?.user,
+      agent_id: eventData.agent.id || 'unknown',
+      timestamp: new Date(eventData.timestamp * 1000 || Date.now()),
+      rule_id: eventData.rule.id || 0,
+      rule_description: eventData.rule.description || 'No description',
+      severity: eventData.rule.level || 0,
+      src_ip: eventData.srcip || null,
+      dst_ip: eventData.dstip || null,
+      user: eventData.data?.win?.eventdata?.user || null,
       event_data: eventData
     });
 
     await event.save();
     
-    // Here you would also emit a WebSocket/Socket.io event for real-time updates
-    // io.emit('new_event', event);
-    
+    // Emit real-time event via Socket.io
+    const io = req.app.get('io'); // Get Socket.io instance
+    io.emit('new_event', { 
+      id: event._id,
+      agent_id: event.agent_id,
+      severity: event.severity,
+      timestamp: event.timestamp,
+      rule_description: event.rule_description
+    });
+
     res.status(200).json({ success: true });
   } catch (error) {
     logger.error(`Webhook error: ${error}`);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
