@@ -19,3 +19,6 @@ Alternatively, use environment variables for security.
    ```bash
    pip install requests pymongo urllib3
 
+2. Run Python Script
+   ```bash
+   python3 wazuh_log_fetch_and_store_in_database.py
